@@ -4,42 +4,71 @@ A simple and efficient command-line tool written in Rust that generates a struct
 
 ## Features
 
-- Recursively walks through all files in the specified directory
-- Generates XML-formatted output with file paths and contents
-- Excludes common unnecessary directories (target, .git, node_modules)
-- Skips hidden files
-- Handles symbolic links
-- Efficient buffered writing to stdout
+- Recursively walks through all files in the specified directory.
+- Generates XML-formatted output with file paths and contents.
+- Excludes common unnecessary directories (`target`, `.git`, `node_modules`) and specific files (e.g., `Cargo.lock`).
+- Skips hidden files.
+- Handles symbolic links.
+- Efficient buffered writing to output.
+- **Clipboard Integration:** By default, the generated XML is copied to your clipboard.
+- **File Output Option:** Use the `-f` flag to write the output to a specified file.
 
 ## Installation
 
 1. Clone the repository:
-```bash
-git clone https://github.com/mitander/repocopy
-cd repocopy
-```
+
+    ```bash
+    git clone https://github.com/mitander/repocopy
+    cd repocopy
+    ```
 
 2. Build the project:
-```bash
-cargo build --release
-```
 
-The executable will be available in `target/release/`.
+    ```bash
+    cargo build --release
+    ```
+
+    The executable will be available in `target/release/`.
+
 
 ## Usage
 
+You can run the tool either via Cargo or using the compiled binary.
+
+### Copy to Clipboard (Default)
+
+If you want to copy the XML output to your clipboard:
+
 ```bash
-cargo run -- /path/to/your/project > project_files.txt
+cargo run -- /path/to/your/project
 ```
 
-Or if using the compiled binary:
+or using the compiled binary:
+
 ```bash
-./project-doc-generator /path/to/your/project > project_files.txt
+./repocopy /path/to/your/project
 ```
 
-### Output Format
+After execution, the XML content will be copied to your clipboard.
 
-The tool generates XML-formatted output like this:
+### Write Output to a File
+
+To write the output to a file, use the `-f` flag followed by the desired output file path:
+
+```bash
+cargo run -- /path/to/your/project -f output.xml
+```
+
+or using the compiled binary:
+
+```bash
+./repocopy /path/to/your/project -f output.xml
+```
+
+## Output Format
+
+The tool generates XML-formatted output as follows:
+
 ```xml
 <documents>
   <document index="1">
@@ -52,16 +81,19 @@ The tool generates XML-formatted output like this:
 </documents>
 ```
 
-### Excluded Directories
+## Excluded Directories and Files
 
 By default, the following directories are excluded:
+
 - `target/`
 - `.git/`
 - `node_modules/`
 
-## Configuration
+Additionally, the following files are excluded:
 
-To modify the excluded directories, edit the `EXCLUDE_DIRS` constant in `src/main.rs`.
+- `Cargo.lock`
+
+To modify these exclusions, edit the `EXCLUDE_DIRS` and `EXCLUDE_FILES` constants in `src/main.rs`.
 
 ## Development
 
@@ -72,7 +104,8 @@ To modify the excluded directories, edit the `EXCLUDE_DIRS` constant in `src/mai
 
 ### Dependencies
 
-- `walkdir = "2.5"` - For recursive directory traversal
+- `walkdir = "2.5"` – For recursive directory traversal.
+- `arboard = "1.2"` – For clipboard support.
 
 ### Building
 
@@ -89,3 +122,5 @@ cargo test
 ## License
 
 MIT License
+
+---
