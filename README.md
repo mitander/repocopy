@@ -1,126 +1,52 @@
 # repocopy
 
-A simple and efficient command-line tool written in Rust that generates a structured XML documentation of your project's files. This tool is particularly useful for creating a comprehensive overview of your project's codebase while excluding specific directories and files.
+A simple command-line tool to generate a structured XML representation of your project's files, suitable for context packing. It excludes common build artifacts, VCS directories, and other configured files/directories by default.
 
 ## Features
-
-- Recursively walks through all files in the specified directory.
-- Generates XML-formatted output with file paths and contents.
-- Excludes common unnecessary directories (`target`, `.git`, `node_modules`) and specific files (e.g., `Cargo.lock`).
-- Skips hidden files.
-- Handles symbolic links.
-- Efficient buffered writing to output.
-- **Clipboard Integration:** By default, the generated XML is copied to your clipboard.
-- **File Output Option:** Use the `-f` flag to write the output to a specified file.
+-   Recursively scans a project directory.
+-   Generates a single XML output containing file paths and their content.
+-   Excludes directories and files based on a configuration file or command-line flags.
+-   Skips hidden files (files starting with `.`).
+-   Copies output to clipboard by default.
+-   Optionally writes output to a file.
 
 ## Installation
-
-1. Clone the repository:
-
-    ```bash
-    git clone https://github.com/mitander/repocopy
-    cd repocopy
-    ```
-
-2. Build the project:
-
-    ```bash
-    cargo build --release
-    ```
-
-    The executable will be available in `target/release/`.
-
+*Install directly using cargo:*
+```bash
+cargo install --git https://github.com/mitander/repocopy
+```
+*Or build from source:*
+```bash
+git clone https://github.com/mitander/repocopy
+cd repocopy
+cargo install --path .
+```
+This installs the `repocopy` binary to `~/.cargo/bin/`. Ensure this directory is in your system's `$PATH`.
 
 ## Usage
-
-You can run the tool either via Cargo or using the compiled binary.
-
-### Copy to Clipboard (Default)
-
-If you want to copy the XML output to your clipboard:
-
 ```bash
-cargo run -- /path/to/your/project
+repocopy ~/my-project --exclude-dirs dist --exclude-files .env
 ```
+## Configuration (Optional)
 
-or using the compiled binary:
+You can customize the default exclusions by creating a configuration file at `~/.config/repocopy/config.yaml` (create the `repocopy` directory if needed). The tool loads exclusions from this file if it exists, otherwise using built-in defaults. Command-line flags (`--exclude-dirs`, `--exclude-files`) always override the config file settings.
 
-```bash
-./repocopy /path/to/your/project
-```
+**Example `~/.config/repocopy/config.yaml`:**
 
-After execution, the XML content will be copied to your clipboard.
+```yaml
+# List of directory names to exclude
+exclude_dirs:
+  - target
+  - node_modules
+  - .git
+  - .venv
 
-### Write Output to a File
-
-To write the output to a file, use the `-f` flag followed by the desired output file path:
-
-```bash
-cargo run -- /path/to/your/project -f output.xml
-```
-
-or using the compiled binary:
-
-```bash
-./repocopy /path/to/your/project -f output.xml
-```
-
-## Output Format
-
-The tool generates XML-formatted output as follows:
-
-```xml
-<documents>
-  <document index="1">
-    <source>src/main.rs</source>
-    <document_content>
-      // File content here
-    </document_content>
-  </document>
-  <!-- More documents... -->
-</documents>
-```
-
-## Excluded Directories and Files
-
-By default, the following directories are excluded:
-
-- `target/`
-- `.git/`
-- `node_modules/`
-
-Additionally, the following files are excluded:
-
-- `Cargo.lock`
-
-To modify these exclusions, edit the `EXCLUDE_DIRS` and `EXCLUDE_FILES` constants in `src/main.rs`.
-
-## Development
-
-### Prerequisites
-
-- Rust 1.54 or higher
-- Cargo
-
-### Dependencies
-
-- `walkdir = "2.5"` – For recursive directory traversal.
-- `arboard = "1.2"` – For clipboard support.
-
-### Building
-
-```bash
-cargo build
-```
-
-### Running Tests
-
-```bash
-cargo test
+# List of exact file names to exclude
+exclude_files:
+  - Cargo.lock
+  - package-lock.json
+  - .DS_Store
 ```
 
 ## License
-
-MIT License
-
----
+[MIT](/LICENSE)

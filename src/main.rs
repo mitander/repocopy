@@ -1,30 +1,61 @@
-use std::env;
+use clap::Parser;
+use quick_xml::escape::escape;
 use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
-use walkdir::WalkDir; // for writing to String
+use std::path::{Component, Path, PathBuf};
+use walkdir::WalkDir;
 
-const EXCLUDE_DIRS: &[&str] = &["target", ".git", "node_modules"];
-const EXCLUDE_FILES: &[&str] = &["Cargo.lock"];
+mod config;
+use config::{load_config, Config};
 
-fn should_skip_path(path: &Path) -> bool {
-    // Check if the path contains any excluded directory.
-    if let Some(path_str) = path.to_str() {
-        if EXCLUDE_DIRS.iter().any(|dir| path_str.contains(dir)) {
-            return true;
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// The root directory of the project to scan.
+    directory: PathBuf,
+
+    /// Write output to a file instead of the clipboard.
+    #[arg(short, long)]
+    output_file: Option<PathBuf>,
+
+    /// Comma-separated list of directories to exclude (overrides config).
+    #[arg(long)]
+    exclude_dirs: Option<String>,
+
+    /// Comma-separated list of files to exclude (overrides config).
+    #[arg(long)]
+    exclude_files: Option<String>,
+}
+
+fn should_skip_path(path: &Path, exclusions: &Config) -> bool {
+    // Check against excluded directory names in path components
+    if path.components().any(|component| {
+        if let Component::Normal(name) = component {
+            if let Some(name_str) = name.to_str() {
+                return exclusions
+                    .exclude_dirs
+                    .iter()
+                    .any(|excluded| *excluded == name_str);
+            }
         }
+        false
+    }) {
+        return true;
     }
 
-    // Check file-specific exclusions.
     if let Some(file_name) = path.file_name() {
         if let Some(file_str) = file_name.to_str() {
-            // Exclude specific files.
-            if EXCLUDE_FILES.iter().any(|&excluded| excluded == file_str) {
+            // Exclude specific files by exact match
+            if exclusions
+                .exclude_files
+                .iter()
+                .any(|excluded| *excluded == file_str)
+            {
                 return true;
             }
-            // Exclude hidden files.
-            if file_str.starts_with('.') {
+            // Exclude hidden files (starting with '.')
+            if file_str.starts_with('.') && file_str != "." && file_str != ".." {
                 return true;
             }
         }
@@ -33,7 +64,7 @@ fn should_skip_path(path: &Path) -> bool {
     false
 }
 
-fn generate_xml(root_path: &Path) -> io::Result<String> {
+fn generate_xml(root_path: &Path, exclusions: &Config) -> io::Result<String> {
     let mut output = String::new();
     writeln!(&mut output, "<documents>").map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     let mut index = 1;
@@ -45,8 +76,7 @@ fn generate_xml(root_path: &Path) -> io::Result<String> {
     {
         let path = entry.path();
 
-        // Skip directories and any paths that should be excluded.
-        if path.is_dir() || should_skip_path(path) {
+        if path.is_dir() || should_skip_path(path, exclusions) {
             continue;
         }
 
@@ -58,21 +88,29 @@ fn generate_xml(root_path: &Path) -> io::Result<String> {
         let content = match fs::read_to_string(path) {
             Ok(text) => text,
             Err(e) => {
-                eprintln!("Error reading {}: {}", relative_path, e);
+                eprintln!(
+                    "Warning: Skipping file {} due to read error: {}",
+                    relative_path, e
+                );
                 continue;
             }
         };
 
-        writeln!(&mut output, "<document index=\"{index}\">")
+        writeln!(&mut output, "  <document index=\"{index}\">")
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        writeln!(&mut output, "<source>{}</source>", relative_path)
+        writeln!(
+            &mut output,
+            "    <source>{}</source>",
+            escape(&relative_path)
+        )
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        writeln!(&mut output, "    <document_content>")
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        writeln!(&mut output, "<document_content>")
+        write!(&mut output, "{}", escape(&content))
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        write!(&mut output, "{}", content).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        writeln!(&mut output, "</document_content>")
+        writeln!(&mut output, "\n    </document_content>")
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        writeln!(&mut output, "</document>")
+        writeln!(&mut output, "  </document>")
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
         index += 1;
@@ -83,51 +121,59 @@ fn generate_xml(root_path: &Path) -> io::Result<String> {
 }
 
 fn main() -> io::Result<()> {
-    // Basic argument parsing: required directory path and an optional "-f <output_file>" flag.
-    let mut args = env::args().skip(1);
-    let mut directory: Option<PathBuf> = None;
-    let mut output_file: Option<PathBuf> = None;
+    let args = Args::parse();
 
-    while let Some(arg) = args.next() {
-        if arg == "-f" {
-            if let Some(file_name) = args.next() {
-                output_file = Some(PathBuf::from(file_name));
-            } else {
-                eprintln!("Error: -f flag provided but no output file specified.");
-                std::process::exit(1);
-            }
-        } else if directory.is_none() {
-            directory = Some(PathBuf::from(arg));
-        }
+    if !args.directory.exists() {
+        eprintln!("Error: Directory not found: {:?}", args.directory);
+        std::process::exit(1);
     }
-
-    let dir = match directory {
-        Some(d) => d,
-        None => {
-            eprintln!("Usage: <program> <directory_path> [-f <output_file>]");
-            std::process::exit(1);
-        }
-    };
-
-    if !dir.exists() {
-        eprintln!("Directory not found: {:?}", dir);
+    if !args.directory.is_dir() {
+        eprintln!(
+            "Error: Provided path is not a directory: {:?}",
+            args.directory
+        );
         std::process::exit(1);
     }
 
-    // Generate the XML content.
-    let xml_content = generate_xml(&dir)?;
+    let mut config = load_config();
 
-    if let Some(file_path) = output_file {
+    if let Some(dirs_str) = args.exclude_dirs {
+        config.exclude_dirs = dirs_str.split(',').map(|s| s.trim().to_string()).collect();
+        println!(
+            "Using command-line excluded directories: {:?}",
+            config.exclude_dirs
+        );
+    }
+    if let Some(files_str) = args.exclude_files {
+        config.exclude_files = files_str.split(',').map(|s| s.trim().to_string()).collect();
+        println!(
+            "Using command-line excluded files: {:?}",
+            config.exclude_files
+        );
+    }
+
+    let xml_content = generate_xml(&args.directory, &config)?;
+
+    if let Some(file_path) = args.output_file {
         fs::write(&file_path, xml_content)?;
         println!("Output written to file: {:?}", file_path);
     } else {
-        // Copy the content to the clipboard using the arboard crate.
-        let mut clipboard =
-            arboard::Clipboard::new().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        clipboard
-            .set_text(xml_content)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        println!("Output copied to clipboard.");
+        match arboard::Clipboard::new() {
+            Ok(mut clipboard) => match clipboard.set_text(xml_content) {
+                Ok(_) => println!("Output copied to clipboard."),
+                Err(e) => {
+                    eprintln!(
+                        "Error copying to clipboard: {}. Increase verbosity for details.",
+                        e
+                    );
+                    std::process::exit(1);
+                }
+            },
+            Err(e) => {
+                eprintln!("Error initializing clipboard: {}. Cannot copy output.", e);
+                std::process::exit(1);
+            }
+        }
     }
 
     Ok(())
