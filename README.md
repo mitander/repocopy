@@ -29,7 +29,7 @@ repocopy ~/my-project --exclude-dirs dist --exclude-files .env
 ```
 ## Configuration (Optional)
 
-You can customize the default exclusions by creating a configuration file at `~/.config/repocopy/config.yaml` (create the `repocopy` directory if needed). The tool loads exclusions from this file if it exists, otherwise using built-in defaults. Command-line flags (`--exclude-dirs`, `--exclude-files`) always override the config file settings.
+You can customize the default exclusions by creating a configuration file at `~/.config/repocopy/config.yaml`. The tool loads exclusions from this file if it exists, otherwise using built-in defaults. Command-line flags (`--exclude-dirs`, `--exclude-files`) always override the config file settings.
 
 **Example `~/.config/repocopy/config.yaml`:**
 

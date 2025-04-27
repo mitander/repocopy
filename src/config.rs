@@ -9,6 +9,9 @@ const DEFAULT_EXCLUDE_DIRS: &[&str] = &[
     "__pycache__",
     ".cache",
     "build",
+    "target",
+    "zig-out",
+    ".zig-cache",
 ];
 const DEFAULT_EXCLUDE_FILES: &[&str] = &["Cargo.lock", "poetry.lock", "package-lock.json"];
 
@@ -41,8 +44,10 @@ impl Default for Config {
 }
 
 pub fn load_config() -> Config {
-    if let Some(config_dir) = dirs::config_dir() {
-        let config_path = config_dir.join("repocopy/config.yaml");
+    if let Ok(xdg_dirs) = xdg::BaseDirectories::new() {
+        let config_home = xdg_dirs.get_config_home();
+        let config_path = config_home.join("repocopy/config.yaml");
+
         if config_path.exists() {
             match fs::read_to_string(&config_path) {
                 Ok(content) => match serde_yaml::from_str(&content) {
@@ -61,10 +66,7 @@ pub fn load_config() -> Config {
                     );
                 }
             }
-        } else {
         }
-    } else {
-        eprintln!("Warning: Could not find config directory. Using defaults.");
     }
     Config::default()
 }
