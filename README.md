@@ -1,12 +1,10 @@
 # repocopy
-
-A simple command-line tool to generate a structured XML representation of your project's files, suitable for context packing. It excludes common build artifacts, VCS directories, and other configured files/directories by default.
+A simple command-line tool to generate a structured XML representation of your project's files, suitable for context packing.
 
 ## Features
 -   Recursively scans a project directory.
 -   Generates a single XML output containing file paths and their content.
 -   Excludes directories and files based on a configuration file or command-line flags.
--   Skips hidden files (files starting with `.`).
 -   Copies output to clipboard by default.
 -   Optionally writes output to a file.
 

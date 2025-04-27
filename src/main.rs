@@ -54,10 +54,6 @@ fn should_skip_path(path: &Path, exclusions: &Config) -> bool {
             {
                 return true;
             }
-            // Exclude hidden files (starting with '.')
-            if file_str.starts_with('.') && file_str != "." && file_str != ".." {
-                return true;
-            }
         }
     }
 
